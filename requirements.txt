@@ -1,0 +1,5 @@
+langchain>=1.4
+langchain-anthropic>=1.7
+rank_bm25
+python-dotenv
+marker-pdf
