@@ -100,17 +100,21 @@ Commands run locally and are never sent to Claude, except `/summarize`.
 | `/new` | Start a fresh conversation |
 | `/exit`, `/quit` | Quit |
 
-### Things to try
+
+### Try it with the example papers
+
+The repo includes four example papers on obesity and cardiovascular disease. The PDFs are in `papers` and the converted versions are in `docs/papers`, so you can try the paper commands without converting anything first.
 
 | Prompt | What it shows |
 |---|---|
-| `what's 17% of 2340?` | The calculator tool |
-| `what time is it?` | The current-time tool |
-| `what do the notes say about middleware?` | Searching documents with a retriever |
-| A question about one of your files in `docs` | Searching your own documents; the answer names the file it used |
-| `explain recursion simply` | A tool that runs its own prompt chain |
-| `save a note that I like Python` | Asking for your approval (`y/N`) before a tool runs |
+| `/convert` | Skipping papers that the index lists as already converted. Add your own PDF to `papers` to see a conversion |
+| `/references` | Combining the reference lists of all the papers into `docs/papers/references.md` |
+| `/summarize` | A one-line summary of each paper. Run it a second time and the saved summaries print without asking Claude |
+| `what claims do these papers make?` | Searching several papers at once; the answer cites each paper it draws on |
+| `are there any contradictions in the research?` | Comparing papers in a follow-up question that builds on the earlier answer |
+| `which papers cite Swinburn?` | Searching the combined reference list (run `/references` first) |
 | `what did I just ask you?` | Memory of earlier turns |
+| `what time is it?` | The current-time tool |
 
 ## LangChain features used
 
