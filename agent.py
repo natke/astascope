@@ -243,6 +243,190 @@ def convert_papers() -> None:
     print(f"  Converted {converted} of {len(todo)} paper(s). Index: {PAPERS_INDEX.relative_to(DOCS_DIR.parent)}")
 
 
+# --- 2c. Combining the reference lists of all converted papers ---------------
+REFERENCES_FILE = PAPERS_OUT / "references.md"
+
+# "References" as a heading, or in bold inside a paragraph (as in Lancet papers).
+_REF_HEADING = re.compile(
+    r"^#{1,6}\s*\**\s*(references|bibliography|literature cited)\s*\**\s*$"
+    r"|\*\*(references|bibliography)\*\*", re.I | re.M)
+# A reference number ("12" or "12.") at the start of a line or after the end of
+# the previous reference, followed by the first author or title.
+_REF_NUM = re.compile(r"(?:^|(?<=[.)\]]\s))(\d{1,3})\.?\s+(?=[\[\"'A-Za-zÀ-ɏ])", re.M)
+# The authors part ends in initials ("Flegal KM"), "Jr"/"Sr", or "et al".
+_AUTHORS = re.compile(r"(\bet al|\b[A-Z][A-Z-]{0,4}( (Jr|Sr|II|III))?)$")
+
+
+def _reference_section(markdown: str) -> str:
+    """The text after the last References heading, up to the next heading."""
+    matches = list(_REF_HEADING.finditer(markdown))
+    if not matches:
+        return ""
+    rest = markdown[matches[-1].end():]
+    end = re.search(r"(?m)^#{1,6}\s", rest)
+    return rest[: end.start()] if end else rest
+
+
+def _clean_markdown(text: str) -> str:
+    text = re.sub(r"<[^>]+>", "", text)  # marker's <span id="page-..."> anchors
+    # [text](url) -> text; the url may contain one level of parentheses
+    text = re.sub(r"\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)", r"\1", text)
+    text = re.sub(r"(?m)^\s*[-*+]\s+", "", text)  # list markers
+    text = text.replace("*", "")
+    text = re.sub(r"\\([()\[\]_#.-])", r"\1", text)  # markdown escapes like \( in DOIs
+    return re.sub(r"[ \t]+", " ", text).strip()  # keep line breaks: they mark new references
+
+
+def split_references(markdown: str) -> list[tuple[int, str]]:
+    """Return (number, text) for each numbered reference in a converted paper."""
+    text = _clean_markdown(_reference_section(markdown))
+    hits = [(int(m.group(1)), m.start(), m.end()) for m in _REF_NUM.finditer(text)]
+    # Follow the numbering 1, 2, 3, ... so numbers inside a reference (volumes,
+    # pages) aren't mistaken for new references. Allow one or two to be missing.
+    chosen, expected, pos = [], 1, 0
+    while True:
+        hit = None
+        for want in (expected, expected + 1, expected + 2):
+            hit = next((h for h in hits if h[0] == want and h[1] >= pos), None)
+            if hit:
+                break
+        if not hit:
+            break
+        chosen.append(hit)
+        expected, pos = hit[0] + 1, hit[2]
+    refs = []
+    for k, (n, _, start) in enumerate(chosen):
+        stop = chosen[k + 1][1] if k + 1 < len(chosen) else len(text)
+        ref = re.sub(r"\s+", " ", text[start:stop]).strip()
+        ref = re.split(r"\s(?:Copyright ©|©\s?\d{4})", ref)[0].strip()  # page footer after the last one
+        refs.append((n, ref))
+    return refs
+
+
+def _reference_key(ref: str) -> str:
+    """Key for spotting the same reference in two papers: its title, letters and digits only."""
+    parts = re.split(r"[.?]\s+", ref, maxsplit=2)
+    if len(parts) > 1 and _AUTHORS.search(parts[0]):
+        title = parts[1]               # "Authors. Title. Journal ..."
+    else:
+        title = " ".join(parts[:2])    # an organisation or no authors
+    key = re.sub(r"[^a-z0-9]+", "", title.lower())
+    return key if len(key) >= 15 else re.sub(r"[^a-z0-9]+", "", ref.lower())
+
+
+# One person in a Vancouver-style author list: "Flegal KM", "Kim B-Y", "D'Agostino RB Sr", "di Palmo E".
+_PERSON = re.compile(r"^\S.{0,40}\s[A-Z][A-Z-]{0,4}(\s(Jr|Sr|II|III))?$")
+
+
+def _reference_authors(ref: str) -> tuple[list[str], bool]:
+    """The people listed as authors of a reference, and whether the list ends in "et al"."""
+    first = re.split(r"[.?]\s+", ref, maxsplit=1)[0]
+    if not _AUTHORS.search(first):
+        return [], False  # an organisation, or no authors
+    names = [n.strip() for n in first.split(",")]
+    et_al = bool(names) and names[-1] == "et al"
+    return [n for n in names if _PERSON.match(n)], et_al
+
+
+def _author_key(name: str) -> str:
+    """Match "Wu Y-K" with "Wu YK" and "Mannan H." with "Mannan H"."""
+    return re.sub(r"[-.]", "", name).lower()
+
+
+def author_stats(references: list[str]) -> dict:
+    """Count unique authors over a list of (already de-duplicated) references."""
+    refs_by_author: dict[str, int] = Counter()
+    spelling: dict[str, str] = {}
+    with_people = truncated = 0
+    for ref in references:
+        names, et_al = _reference_authors(ref)
+        with_people += bool(names)
+        truncated += et_al
+        for key in {_author_key(n): n for n in names}:  # count each person once per reference
+            refs_by_author[key] += 1
+        for n in names:
+            spelling.setdefault(_author_key(n), n)
+    # Same surname, where one set of initials starts the other ("Puhl R" / "Puhl RM"):
+    # often the same person, but not always, so list them instead of merging.
+    by_surname: dict[str, list[str]] = {}
+    for key in sorted(refs_by_author):
+        surname, initials = key.rsplit(" ", 1)
+        by_surname.setdefault(surname, []).append(initials)
+    possible_same = []
+    for surname, inits in by_surname.items():
+        group = sorted({i for i in inits for j in inits if i != j and (i.startswith(j) or j.startswith(i))})
+        if group:
+            possible_same.append([spelling[f"{surname} {i}"] for i in group])
+    return {
+        "possible_same": possible_same,
+        "unique": len(refs_by_author),
+        "listings": sum(refs_by_author.values()),
+        "with_people": with_people,
+        "truncated": truncated,
+        "single_reference": sum(c == 1 for c in refs_by_author.values()),
+        "top": [(spelling[k], c) for k, c in sorted(refs_by_author.items(), key=lambda kc: (-kc[1], kc[0]))[:20]],
+    }
+
+
+def collect_references() -> None:
+    """Write the combined, de-duplicated references of all converted papers to references.md."""
+    papers = [e for e in load_paper_index().values() if (DOCS_DIR.parent / e["output"]).exists()]
+    if not papers:
+        print("  No converted papers found. Run /convert first.")
+        return
+    merged: dict[str, dict] = {}  # key -> {"text": ..., "cited_by": [(title, number)]}
+    for paper in sorted(papers, key=lambda e: e["title"].lower()):
+        refs = split_references((DOCS_DIR.parent / paper["output"]).read_text(encoding="utf-8"))
+        print(f"  {len(refs):4} references  {paper['title'][:70]}")
+        for n, ref in refs:
+            entry = merged.setdefault(_reference_key(ref), {"text": ref, "cited_by": []})
+            if len(ref) > len(entry["text"]):  # keep the fullest version, e.g. all authors
+                entry["text"] = ref
+            entry["cited_by"].append((paper["title"], n))
+
+    total = sum(len(e["cited_by"]) for e in merged.values())
+    shared = sum(len({t for t, _ in e["cited_by"]}) > 1 for e in merged.values())
+    entries = sorted(merged.values(), key=lambda e: e["text"].lower())
+    authors = author_stats([e["text"] for e in entries])
+    lines = [
+        "# References from all papers",
+        "",
+        f"{len(merged)} unique references from {len(papers)} papers ({total} in total, "
+        f"{shared} cited by more than one paper). Generated {datetime.now():%Y-%m-%d %H:%M} by /references.",
+        "",
+        "## Authors",
+        "",
+        f"- **{authors['unique']} unique authors** across the {authors['with_people']} references "
+        f"that name people as authors ({authors['listings']} author listings in total).",
+        f"- {authors['single_reference']} authors appear on only one reference.",
+        f"- {len(merged) - authors['with_people']} references have an organisation as author, "
+        "or no author, and aren't counted.",
+        f"- {authors['truncated']} references shorten their author list to \"et al\", so authors "
+        "hidden by \"et al\" aren't counted.",
+        *([f"- Counted separately but possibly the same person (same surname, shorter initials): "
+           + "; ".join(" / ".join(g) for g in authors["possible_same"]) + "."]
+          if authors["possible_same"] else []),
+        "",
+        "Authors on the most references:",
+        "",
+        "| Author | References |",
+        "|---|---|",
+        *[f"| {name} | {count} |" for name, count in authors["top"]],
+        "",
+        "## References",
+        "",
+    ]
+    for i, entry in enumerate(entries, 1):
+        cited = "; ".join(f"{title} (ref {n})" for title, n in entry["cited_by"])
+        lines += [f"{i}. {entry['text']}", f"   - Cited by: {cited}", ""]
+    REFERENCES_FILE.write_text("\n".join(lines), encoding="utf-8")
+    reload_docs()  # make the combined list searchable too
+    print(f"  {len(merged)} unique references ({total} in total, {shared} shared).")
+    print(f"  {authors['unique']} unique authors; most references: "
+          + ", ".join(f"{name} ({count})" for name, count in authors["top"][:5]))
+    print(f"  Saved to {REFERENCES_FILE.relative_to(DOCS_DIR.parent)}")
+
+
 # --- 3. An LCEL chain used inside a tool -----------------------------------
 eli5_chain = (
     ChatPromptTemplate.from_messages([
@@ -252,6 +436,43 @@ eli5_chain = (
     | model
     | StrOutputParser()
 )
+
+
+# --- 3b. One-line summaries of the converted papers --------------------------
+SUMMARY_CHARS = 60_000  # send at most this much of each paper (title, abstract, main text)
+
+summary_chain = (
+    ChatPromptTemplate.from_messages([
+        ("system", "Summarize the research paper in one sentence of at most 30 words: "
+                   "what was studied and the main finding or conclusion. "
+                   "Reply with the sentence only."),
+        ("human", "Title: {title}\n\n{text}"),
+    ])
+    | model
+    | StrOutputParser()
+)
+
+
+def summarize_papers() -> None:
+    """Print a one-line summary of each converted paper, asking Claude for any not yet summarized."""
+    index = load_paper_index()
+    papers = [e for e in index.values() if (DOCS_DIR.parent / e["output"]).exists()]
+    if not papers:
+        print("  No converted papers found. Run /convert first.")
+        return
+    for paper in sorted(papers, key=lambda e: e["title"].lower()):
+        if not paper.get("summary"):
+            markdown = (DOCS_DIR.parent / paper["output"]).read_text(encoding="utf-8")
+            refs = list(_REF_HEADING.finditer(markdown))
+            body = markdown[: refs[-1].start()] if refs else markdown  # drop the reference list
+            try:
+                summary = summary_chain.invoke({"title": paper["title"], "text": body[:SUMMARY_CHARS]})
+            except SendDeclined:
+                print(f"  skip  {paper['title']} (not sent)")
+                continue
+            paper["summary"] = " ".join(summary.split())
+            save_paper_index(index)  # cache it; /convert replaces the entry, so a reconverted paper is summarized again
+        print(f"  - {paper['title']}: {paper['summary']}")
 
 
 # --- 4. Runtime context (per-invocation data the tools and prompt can read) --
@@ -366,11 +587,13 @@ def run(payload, config, context):
     return agent.get_state(config).values.get("structured_response")
 
 
-# --- 10. Commands: handled locally, never sent to Claude ---------------------
+# --- 10. Commands: handled locally; only /summarize sends anything to Claude --
 HELP = """  /help     show this list
   /notes    list the notes in the knowledge base
   /docs     list the files loaded from the docs folder
   /convert  convert new PDFs in the papers folder to text (skips ones already done)
+  /references  combine the reference lists of all converted papers, without duplicates
+  /summarize   one-line summary of each converted paper (asks Claude; results are cached)
   /history  show this conversation's messages
   /new      start a fresh conversation
   /exit     quit (also /quit, Ctrl-C or Ctrl-D)"""
@@ -392,6 +615,10 @@ def handle_command(cmd, config):
             print(f"  - {source} ({n} chunk{'s' if n != 1 else ''})")
     elif cmd == "/convert":
         convert_papers()
+    elif cmd == "/references":
+        collect_references()
+    elif cmd == "/summarize":
+        summarize_papers()
     elif cmd == "/history":
         messages = agent.get_state(config).values.get("messages", [])
         if not messages:

@@ -5,7 +5,8 @@
     "pdf_size_bytes": 801707,
     "date_converted": "2026-11-02T17:23:16",
     "output": "docs/papers/e005629.full/e005629.full.md",
-    "images": 1
+    "images": 1,
+    "summary": "In 5036 Framingham participants, cumulative obese-years showed a dose-response association with cardiovascular disease risk, stronger in men, and predicted risk slightly better than BMI level or obesity duration alone."
   },
   {
     "filename": "Obesity - 2015 - Reis - Excess body mass index‐ and waist circumference‐years and incident cardiovascular disease  The.pdf",
@@ -13,7 +14,8 @@
     "pdf_size_bytes": 142106,
     "date_converted": "2026-11-02T17:23:18",
     "output": "docs/papers/Obesity - 2015 - Reis - Excess body mass index‐ and waist circumference‐years and incident cardiovascular disease  The/Obesity - 2015 - Reis - Excess body mass index‐ and waist circumference‐years and incident cardiovascular disease  The.md",
-    "images": 0
+    "images": 0,
+    "summary": "In 4,061 CARDIA young adults followed ~25 years, cumulative excess BMI- and waist circumference-years predicted incident cardiovascular disease, coronary disease, and heart failure better than BMI or waist circumference alone."
   },
   {
     "filename": "PIIS2213858724003164.pdf",
@@ -21,7 +23,8 @@
     "pdf_size_bytes": 5154981,
     "date_converted": "2026-11-02T17:23:27",
     "output": "docs/papers/PIIS2213858724003164/PIIS2213858724003164.md",
-    "images": 9
+    "images": 9,
+    "summary": "A Lancet Commission of 58 experts used Delphi consensus to define clinical obesity as excess adiposity causing organ dysfunction or daily-activity limitation, distinct from preclinical obesity, and recommended against BMI-only individual diagnosis."
   },
   {
     "filename": "PIIS2589537026004840.pdf",
@@ -29,6 +32,7 @@
     "pdf_size_bytes": 2048700,
     "date_converted": "2026-11-02T17:23:31",
     "output": "docs/papers/PIIS2589537026004840/PIIS2589537026004840.md",
-    "images": 10
+    "images": 10,
+    "summary": "Across 786,557 people in 11 cohorts from seven high-income countries, Lancet Commission-defined clinical obesity was rarer than BMI-defined obesity in childhood but exceeded it from mid-to-late adulthood, peaking at 52% at 65–74 years."
   }
 ]

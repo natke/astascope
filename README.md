@@ -44,6 +44,20 @@ Put PDF files in the `papers` folder, start the agent and type `/convert`. It us
 
 The first `/convert` downloads marker's models (a few GB) and runs slowly. Conversion runs on your machine, so the PDFs are not sent to Claude.
 
+### Combine the papers' references
+
+After converting, type `/references` to build one list of every reference cited by the converted papers, with duplicates removed. It is saved to `docs/papers/references.md`, sorted by first author, and each entry lists the papers that cite it and its reference number in each. The file is added to the agent's search, so you can ask questions such as "which papers cite Swinburn?".
+
+- References are found under a `References` (or `Bibliography`) heading, or after a bold **References** in a paragraph, as in Lancet papers. They are split by following the numbering 1, 2, 3, …, so papers must use numbered references; author–year styles are not supported.
+- Two references count as the same if their titles match after ignoring case, punctuation and spacing. So differences in page ranges, journal abbreviations or author lists don't stop a match, but a different spelling in the title does.
+- When the same reference appears in several papers, the longest version is kept (usually the one with the full author list).
+- An **Authors** section at the top of the file gives the number of unique authors and lists the 20 who appear on the most references. Each person counts once per reference. Authors are read from the start of each reference in the "Surname Initials" style (for example, `Flegal KM`). Organisation authors, such as WHO, aren't counted, and neither are authors hidden by "et al". "Wu Y-K" and "Wu YK" count as one person. Names with the same surname where one set of initials is shorter, such as "Puhl R" and "Puhl RM", are counted separately but listed as possibly the same person.
+- `/references` reads all converted papers each time and replaces the file. It doesn't send anything to Claude.
+
+### Summarize the papers
+
+Type `/summarize` to print a one-line summary of each converted paper. Unlike the other commands, this one sends each paper's text to Claude (up to the first 60,000 characters, without the reference list), so you're asked to confirm each request as usual. Summaries are saved in `docs/papers/index.json`, so later runs print them without asking Claude again. Reconverting a paper clears its summary.
+
 ## Run
 
 ```bash
@@ -72,7 +86,7 @@ One question can take several requests (one per tool step), so you may be asked 
 
 ### Commands
 
-Commands run locally and are never sent to Claude.
+Commands run locally and are never sent to Claude, except `/summarize`.
 
 | Command | What it does |
 |---|---|
@@ -80,6 +94,8 @@ Commands run locally and are never sent to Claude.
 | `/notes` | List the notes in the knowledge base |
 | `/docs` | List the files loaded from `docs` and how many chunks each has |
 | `/convert` | Convert new PDFs in `papers` to Markdown with images, and update the index (see [Add papers](#add-papers-pdfs)) |
+| `/references` | Combine the reference lists of all converted papers, without duplicates (see [Combine the papers' references](#combine-the-papers-references)) |
+| `/summarize` | Print a one-line summary of each converted paper, asking Claude for new ones (see [Summarize the papers](#summarize-the-papers)) |
 | `/history` | Show the messages in this conversation |
 | `/new` | Start a fresh conversation |
 | `/exit`, `/quit` | Quit |
