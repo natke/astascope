@@ -1,6 +1,6 @@
-# LangChain Starter Agent
+# AstaScope
 
-A small command-line chat agent built with [LangChain](https://python.langchain.com/) and Claude (`claude-opus-5-5`). It is kept to one file, `agent.py`, but uses many of LangChain's core features.
+AstaScope is a small command-line chat agent built with [LangChain](https://python.langchain.com/) and Claude (`claude-opus-5-5`). It is kept to one file, `agent.py`, but uses many of LangChain's core features.
 
 ## Requirements
 
@@ -32,13 +32,13 @@ If `.env` doesn't exist (for example, in a fresh clone), create it from the temp
 
 ### Add your documents
 
-Put the documents you want the agent to search in the `docs` folder. It reads `.md`, `.txt` and `.rst` files, including files in subfolders, and ignores other file types. The files are loaded when the agent starts, so restart it after adding or changing files.
+Put the documents you want AstaScope to search in the `docs` folder. It reads `.md`, `.txt` and `.rst` files, including files in subfolders, and ignores other file types. The files are loaded when AstaScope starts, so restart it after adding or changing files.
 
-Each file is split into chunks of about 1,500 characters at paragraph breaks. When the agent searches, it gets back the 4 best-matching chunks, each labeled with the file it came from. The agent is told to name that file in its answer, so you can check where the information came from.
+Each file is split into chunks of about 1,500 characters at paragraph breaks. When AstaScope searches, it gets back the 4 best-matching chunks, each labeled with the file it came from. AstaScope is told to name that file in its answer, so you can check where the information came from.
 
 ### Add papers (PDFs)
 
-Put PDF files in the `papers` folder, start the agent and type `/convert`. It uses [marker-pdf](https://github.com/datalab-to/marker) to turn each PDF into Markdown, with the figures saved as image files, under `docs/papers/<file name>/`. The converted text is added to the agent's search right away, without a restart.
+Put PDF files in the `papers` folder, start AstaScope and type `/convert`. It uses [marker-pdf](https://github.com/datalab-to/marker) to turn each PDF into Markdown, with the figures saved as image files, under `docs/papers/<file name>/`. The converted text is added to AstaScope's search right away, without a restart.
 
 `/convert` keeps an index in `docs/papers/index.json` with one entry per converted paper: the PDF file name, the paper title (taken from the first heading in the converted text), the PDF's size in bytes, the date it was converted, the path to the Markdown file and the number of images. On later runs it skips any PDF that the index already lists with the same file size, so only new or changed PDFs are converted. To convert a paper again, delete its entry from the index.
 
@@ -46,7 +46,7 @@ The first `/convert` downloads marker's models (a few GB) and runs slowly. Conve
 
 ### Combine the papers' references
 
-After converting, type `/references` to build one list of every reference cited by the converted papers, with duplicates removed. It is saved to `docs/papers/references.md`, sorted by first author, and each entry lists the papers that cite it and its reference number in each. The file is added to the agent's search, so you can ask questions such as "which papers cite Swinburn?".
+After converting, type `/references` to build one list of every reference cited by the converted papers, with duplicates removed. It is saved to `docs/papers/references.md`, sorted by first author, and each entry lists the papers that cite it and its reference number in each. The file is added to AstaScope's search, so you can ask questions such as "which papers cite Swinburn?".
 
 - References are found under a `References` (or `Bibliography`) heading, or after a bold **References** in a paragraph, as in Lancet papers. They are split by following the numbering 1, 2, 3, …, so papers must use numbered references; author–year styles are not supported.
 - Two references count as the same if their titles match after ignoring case, punctuation and spacing. So differences in page ranges, journal abbreviations or author lists don't stop a match, but a different spelling in the title does.
@@ -64,15 +64,15 @@ Type `/summarize` to print a one-line summary of each converted paper. Unlike th
 python agent.py
 ```
 
-At startup the agent reports what it loaded from `docs`, for example `Loaded 12 documents (48 chunks) from docs/.` If it says 0, check that your files are in `docs` and end in `.md`, `.txt` or `.rst`.
+At startup AstaScope reports what it loaded from `docs`, for example `Loaded 12 documents (48 chunks) from docs/.` If it says 0, check that your files are in `docs` and end in `.md`, `.txt` or `.rst`.
 
 Enter your name, then chat. Type `/exit` (or press `Ctrl-C`) to quit.
 
-While it runs, the agent prints a line for each model call and each tool call. Every reply lists the tools it used.
+While it runs, AstaScope prints a line for each model call and each tool call. Every reply lists the tools it used.
 
 ### Confirming before each request to Claude
 
-Before anything is sent to Claude, the agent shows how many messages it will send and a preview of the last one, then asks:
+Before anything is sent to Claude, AstaScope shows how many messages it will send and a preview of the last one, then asks:
 
 ```
 Send to Claude? [y]es / [n]o / [a]lways:
@@ -129,6 +129,6 @@ Commands run locally and are never sent to Claude, except `/summarize`.
 
 ## Notes
 
-- Memory and saved notes are kept in memory only, so they are lost when the program exits. The agent never changes your files in `docs`; `/convert` only writes inside `docs/papers`.
+- Memory and saved notes are kept in memory only, so they are lost when the program exits. AstaScope never changes your files in `docs`; `/convert` only writes inside `docs/papers`.
 - Search matches keywords, not meaning, so a question only finds passages that use some of the same words.
 - The model has Anthropic's server-side fallback turned on (`fallbacks: "default"`): if a safety check declines a request, the API retries it on another model. To turn it off, remove the `betas` and `model_kwargs` lines from the `ChatAnthropic(...)` call.
